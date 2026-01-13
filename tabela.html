@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Frequência de Bolsistas</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    padding: 20px;
+}
+.container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+th, td {
+    border: 1px solid #ccc;
+    padding: 5px;
+    text-align: center;
+}
+th {
+    background: #eee;
+}
+button {
+    padding: 6px 10px;
+    margin-right: 5px;
+    background: #0057b8;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+button:hover {
+    background: #004494;
+}
+select {
+    width: 100%;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>Sistema de Frequência</h2>
+<div id="info"></div>
+
+<br>
+<button onclick="salvar()">💾 Salvar</button>
+<button onclick="enviar()">📤 Enviar Planilha</button>
+
+<br><br>
+
+<table>
+<thead>
+<tr>
+    <th>Campus</th>
+    <th>Nome</th>
+    <th>Matrícula</th>
+    <th>Setor</th>
+    <th>Início</th>
+    <th>Fim</th>
+    <th>Coordenador</th>
+    <th>Jan</th><th>Fev</th><th>Mar</th><th>Abr</th>
+    <th>Mai</th><th>Jun</th><th>Jul</th><th>Ago</th>
+    <th>Set</th><th>Out</th><th>Nov</th><th>Dez</th>
+    <th>Justificativa</th>
+    <th>Arquivo</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+
+</div>
+
+<script>
+const URL_APPS = "https://script.google.com/macros/s/AKfycbxffwSCXgU_m2pMbOpfU4DvqIOH43ziSER0hLAUVHYjO4S7eBUyZA5Mt0po5Y2J7qfyEg/exec";
+
+const email = sessionStorage.getItem("coordenadorLogado");
+if (!email) {
+    alert("Acesso inválido");
+    window.location.href = "index.html";
+}
+
+const isAdmin = email === "bolsatrabalho@prex.uespi.br";
+document.getElementById("info").innerText =
+    `Usuário: ${email} | Perfil: ${isAdmin ? "Administrador" : "Coordenador"}`;
+
+let dados = [];
+
+fetch(URL_APPS + "?acao=listar&email=" + email)
+.then(r => r.json())
+.then(d => {
+    dados = d;
+    render();
+})
+.catch(() => alert("Erro ao carregar dados"));
+
+function render() {
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = "";
+
+    dados.forEach((b, i) => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+        <td>${b.campus}</td>
+        <td>${b.nome}</td>
+        <td>${b.matricula}</td>
+        <td>${b.setor}</td>
+        <td>${b.inicio}</td>
+        <td>${b.fim}</td>
+        <td>${b.coordenador}</td>
+        ${meses(b, i)}
+        <td><input value="${b.justificativa||""}" onchange="dados[${i}].justificativa=this.value"></td>
+        <td>
+            ${b.arquivo ? `<a href="${b.arquivo}" target="_blank">Ver</a>` : ""}
+            <input type="file" onchange="upload(event, ${i})">
+        </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function meses(b, i) {
+    const m = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    return m.map(x => `
+    <td>
+        <select onchange="dados[${i}]['${x}']=this.value">
+            <option value="" ${!b[x]?"selected":""}></option>
+            <option value="SIM" ${b[x]=="SIM"?"selected":""}>SIM</option>
+            <option value="NÃO" ${b[x]=="NÃO"?"selected":""}>NÃO</option>
+        </select>
+    </td>
+    `).join("");
+}
+
+function upload(e, i) {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (f.size > 10*1024*1024) {
+        alert("Arquivo maior que 10MB");
+        return;
+    }
+
+    const r = new FileReader();
+    r.onload = () => {
+        dados[i].arquivoBase64 = r.result.split(",")[1];
+        dados[i].arquivoNome = f.name;
+        dados[i].arquivoMime = f.type;
+    };
+    r.readAsDataURL(f);
+}
+
+function salvar() {
+    fetch(URL_APPS, {
+        method: "POST",
+        body: JSON.stringify({acao:"salvar", dados})
+    })
+    .then(r=>r.json())
+    .then(()=>alert("Salvo com sucesso"))
+    .catch(()=>alert("Erro ao salvar"));
+}
+
+function enviar() {
+    salvar();
+    alert("Planilha enviada");
+}
+</script>
+
+</body>
+</html>
